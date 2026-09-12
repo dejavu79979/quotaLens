@@ -35,6 +35,8 @@ QuotaLens has one settings page inside the Even App. Paste the relay address the
 
 ![Settings page in the Even App: Relay address field, Poll interval (3 / 5 / 10 min), Test connection](docs/images/phone-settings.png)
 
+Demo render of the settings page with a placeholder address; the `✓ <ms>` row is what a successful test looks like, not a measurement.
+
 ## Requirements
 
 | Requirement | Supported setup |
