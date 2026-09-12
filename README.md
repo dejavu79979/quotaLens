@@ -13,6 +13,22 @@ Claude + Codex                                              <── R1/temple in
 
 The plugin polls `GET /usage.json`; the daemon listens on loopback and the desktop's Tailscale IPv4 address on port 8787.
 
+## On the glasses
+
+The usage page: one section per tool with the 5-hour and weekly windows, a bar, the reset time, and how fresh the numbers are (`ok` or `stale Xm`). The third Claude row is the per-model weekly limit when your plan has one.
+
+![Usage page on the G2: CLAUDE and CODEX sections with percentages, bars and reset times](docs/images/glasses-usage.png)
+
+First launch, before a relay address is set:
+
+![First launch: "Set the relay address in the Even App on your phone"](docs/images/glasses-first-launch.png)
+
+Long-press opens the menu (Refresh now / Exit):
+
+![Menu: Refresh now, Token stats · soon, Exit](docs/images/glasses-menu.png)
+
+Captures are from the Even Hub simulator at the G2's 576×288 resolution; the glasses render the same green-on-transparent layout.
+
 ## Requirements
 
 | Requirement | Supported setup |
