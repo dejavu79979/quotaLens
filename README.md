@@ -44,7 +44,7 @@ Demo render of the settings page with a placeholder address; the `✓ <ms>` row 
 | Glasses and phone | Even Realities G2 and Even App 2.2.10 or newer |
 | Desktop OS | macOS (tested); Linux has an untested systemd user-unit template and manual setup |
 | Node.js | 20.19+, 22.13+, or 24+ |
-| Local tools | `jq` and [Tailscale](https://tailscale.com/download) on both the desktop and the phone, signed in to the same tailnet |
+| Local tools | `jq` on the desktop; [Tailscale](https://tailscale.com/download) on both the desktop and the phone, signed in to the same tailnet |
 | Usage sources | Claude Code and/or Codex CLI, signed in with a subscription account |
 
 Using only Claude Code or only Codex is supported; the unavailable section is omitted.
