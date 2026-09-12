@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  QuotaLens daemon as a per-user LaunchAgent (PLAN T1.6; rendered by scripts/install.sh, M8 T8.2).
+
+  A LaunchAgent, not a system LaunchDaemon: the daemon reads the login Keychain (Claude, T1.3),
+  ~/.codex/auth.json and ~/.quotalens, all of which belong to the logged-in user's session.
+
+  The four double-at markers below are filled in by scripts/install.sh from the machine it runs on:
+    NODE  absolute path of `node` (launchd's PATH has no Homebrew / nvm / volta)
+    REPO  absolute path of this repo (tsx runs the daemon from source)
+    PATH  PATH for the daemon: node's and codex's directories first (T1.4 spawns `codex` by name)
+    HOME  the user's home (log file location)
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>dev.bruce.quotalens</string>
+
+  <!-- tsx is the daemon's TypeScript runtime (same as `npm run dev`). -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>@@NODE@@</string>
+    <string>@@REPO@@/node_modules/tsx/dist/cli.mjs</string>
+    <string>@@REPO@@/daemon/src/index.ts</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>@@REPO@@</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>@@PATH@@</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- Both streams go to one file. Nothing secret is written there: the daemon never logs the path
+       secret (index.ts) nor any token (§6 rule 1), so launchd's default 644 on a recreated log is
+       not a leak. -->
+  <key>StandardOutPath</key>
+  <string>@@HOME@@/Library/Logs/quotalens.log</string>
+  <key>StandardErrorPath</key>
+  <string>@@HOME@@/Library/Logs/quotalens.log</string>
+</dict>
+</plist>

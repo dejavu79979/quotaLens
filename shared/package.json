@@ -1,0 +1,16 @@
+{
+  "name": "@quotalens/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./schema.ts",
+  "scripts": {
+    "test": "tsx --test schema.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

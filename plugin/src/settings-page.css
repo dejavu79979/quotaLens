@@ -1,0 +1,197 @@
+/* QuotaLens phone-side settings page — PLAN §7 "phone side" tokens (2026-09-07, aligned with the
+   design-guidelines skill's Even app tokens). This file is the only place those tokens live.
+
+   Two constraints a reviewer checks here:
+   - The glasses green is not in this file, and must never be: §7 forbids it on the phone side
+     entirely (PLAN.md:613), so its hex does not appear here even in a comment.
+   - The accent button carries #232323 dark text, a deliberate deviation from the official
+     `--color-text-on-accent` (#FFFFFF): white on #FEF991 is ~1.2:1 and unreadable (PLAN.md:613,
+     design frame D). If Even's review asks for the official value back, change one token below. */
+
+.qs-root {
+  --qs-text: #232323;
+  --qs-muted: #7b7b7b;
+  --qs-bg: #ffffff;
+  --qs-surface: #eeeeee;
+  --qs-field: rgba(35, 35, 35, 0.08);
+  --qs-accent: #fef991; /* accent only — never a page background (§7) */
+  --qs-text-on-accent: #232323; /* the deliberate deviation; see the note above */
+
+  /* 4/8 grid */
+  --qs-1: 4px;
+  --qs-2: 8px;
+  --qs-3: 12px;
+  --qs-4: 16px;
+  --qs-screen: 20px;
+
+  font-family: 'FK Grotesk Neue', 'Source Han Sans', system-ui, -apple-system, sans-serif;
+  color: var(--qs-text);
+  background: var(--qs-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.qs-page {
+  box-sizing: border-box;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--qs-screen);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qs-3);
+}
+
+.qs-page *,
+.qs-page *::before,
+.qs-page *::after {
+  box-sizing: border-box;
+}
+
+/* Title 24 / 600 / −0.02em */
+.qs-title {
+  margin: 0 0 var(--qs-1);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.qs-card {
+  background: var(--qs-surface);
+  border-radius: var(--qs-3);
+  padding: var(--qs-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qs-2);
+}
+
+/* Label 11 / 500 / uppercase / +0.04em */
+.qs-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--qs-muted);
+}
+
+/* Body 16 / 400 / −0.01em */
+.qs-input {
+  width: 100%;
+  padding: var(--qs-3);
+  border: 1px solid transparent;
+  border-radius: var(--qs-2);
+  background: var(--qs-field);
+  color: var(--qs-text);
+  font: inherit;
+  font-size: 16px; /* 16px keeps iOS/Android WebViews from zooming on focus */
+  letter-spacing: -0.01em;
+}
+
+.qs-input::placeholder {
+  color: var(--qs-muted);
+}
+
+.qs-input:focus {
+  outline: none;
+  border-color: var(--qs-text);
+}
+
+/* Caption 13 / 400 */
+.qs-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--qs-muted);
+}
+
+.qs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--qs-2);
+  min-height: 32px;
+}
+
+.qs-row-name {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.qs-segments {
+  display: flex;
+  gap: var(--qs-1);
+}
+
+/* T6b.2: §7 V3's threshold stepper (`.qs-stepper` / `.qs-step` / `.qs-step-value`) is gone, so the
+   segmented poll-interval control is the only button group left in a row. */
+.qs-segment {
+  border: 1px solid transparent;
+  border-radius: var(--qs-2);
+  background: var(--qs-bg);
+  color: var(--qs-text);
+  font: inherit;
+  font-size: 13px;
+  padding: var(--qs-2) var(--qs-3);
+  min-height: 32px;
+  cursor: pointer;
+}
+
+/* Visible feedback for the selection — the row must never leave "which one is it?" unanswered. */
+.qs-segment.is-selected {
+  background: var(--qs-accent);
+  color: var(--qs-text-on-accent);
+  font-weight: 500;
+}
+
+/* §7 V8 — the result row sits directly above the button. */
+.qs-test-row {
+  margin: var(--qs-1) 0 0;
+  min-height: 20px;
+  font-size: 13px;
+  color: var(--qs-muted);
+}
+
+.qs-test-row[data-kind='ok'],
+.qs-test-row[data-kind='fail'] {
+  color: var(--qs-text);
+  font-weight: 500;
+}
+
+.qs-button {
+  width: 100%;
+  padding: var(--qs-3) var(--qs-4);
+  border: none;
+  border-radius: var(--qs-2);
+  background: var(--qs-accent);
+  color: var(--qs-text-on-accent);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  min-height: 48px;
+  cursor: pointer;
+}
+
+.qs-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.qs-saved {
+  margin: 0;
+  min-height: 18px;
+  font-size: 13px;
+  color: var(--qs-muted);
+  text-align: center;
+}
+
+.qs-saved[data-kind='fail'] {
+  color: var(--qs-text);
+  font-weight: 500;
+}
+
+/**
+ * T6b.4: `Saved (browser only …)` is neither a success nor a failure — the value is live and the
+ * browser has it, but only the Even App keeps it across a restart. Full-contrast text so the caveat
+ * is read, no weight so it does not shout like a failure.
+ */
+.qs-saved[data-kind='partial'] {
+  color: var(--qs-text);
+}

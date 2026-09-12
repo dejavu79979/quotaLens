@@ -1,0 +1,22 @@
+{
+  "package_id": "dev.bruce.quotalens",
+  "edition": "202601",
+  "name": "QuotaLens",
+  "version": "0.3.1",
+  "min_app_version": "2.2.10",
+  "min_sdk_version": "0.0.15",
+  "entrypoint": "index.html",
+  "permissions": [
+    {
+      "name": "network",
+      "desc": "Reads usage percentages from the QuotaLens daemon on the user's own desktop over their Tailscale tailnet (self-hosted; no third-party server).",
+      "whitelist": [
+        "http://127.0.0.1:8787",
+        "http://100.x.y.z:8787"
+      ]
+    }
+  ],
+  "supported_languages": [
+    "en"
+  ]
+}

@@ -1,0 +1,23 @@
+# grill-team audit artifacts (session-local, regenerated on demand)
+.grill-team/
+.grill-team-scratch/
+
+# Claude Code per-user overrides
+.claude/settings.local.json
+
+# build / deps (daemon, plugin, shared — created from T1.1 onward)
+node_modules/
+dist/
+*.ehpk
+
+# path secret (§6 rule 4). It lives in ~/.quotalens/config.json, outside this repo — these lines are
+# the second line of defence for the day someone copies it in here to debug something.
+.quotalens/
+quotalens-config.json
+
+# Playwright MCP scratch (page snapshots and console dumps from QA runs). Session-local, and it
+# captures whatever the page was showing — keep it out of git on both counts.
+.playwright-mcp/
+
+# OS
+.DS_Store

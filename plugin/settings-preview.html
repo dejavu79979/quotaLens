@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuotaLens settings preview (T3.5)</title>
+    <link rel="stylesheet" href="/src/settings-page.css" />
+    <style>
+      /* Harness chrome only — nothing here is part of the page under test. */
+      body {
+        margin: 0;
+        background: #d8d8d8;
+        font-family: system-ui, sans-serif;
+      }
+      .frame {
+        width: 390px; /* a phone-sized viewport, so the §7 spacing is judged at real width */
+        margin: 24px auto;
+        background: #fff;
+        box-shadow: 0 2px 12px rgb(0 0 0 / 0.18);
+      }
+      .note {
+        max-width: 390px;
+        margin: 0 auto 8px;
+        font-size: 12px;
+        color: #444;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="note">
+      T3.5 harness. <code>?fetch=ok</code> / <code>?fetch=fail</code> / <code>?fetch=slow</code>
+      stubs Test connection so the §7 V8 row can be seen without a relay; no query = the real fetch.
+      M9: the field takes the daemon's origin (<code>http://100.x.y.z:8787</code>); there is no
+      Scan button any more.
+    </p>
+    <div class="frame"><div id="app"></div></div>
+    <script type="module">
+      import { mountSettingsPage } from '/src/settings-page.ts';
+      import { DEMO_PAYLOAD } from '/src/fixtures.ts';
+
+      const params = new URLSearchParams(location.search);
+      const mode = params.get('fetch');
+      const stub = {
+        ok: async () => new Response(JSON.stringify(DEMO_PAYLOAD), { status: 200 }),
+        fail: async () => new Response('nope', { status: 404 }),
+        slow: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          return new Response(JSON.stringify(DEMO_PAYLOAD), { status: 200 });
+        },
+      }[mode ?? ''];
+
+      mountSettingsPage(document.getElementById('app'), stub ? { fetch: stub } : {});
+    </script>
+  </body>
+</html>

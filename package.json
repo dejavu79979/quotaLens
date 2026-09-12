@@ -1,0 +1,14 @@
+{
+  "name": "quotalens",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "daemon",
+    "plugin"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "setup": "npm run setup --workspace @quotalens/daemon --"
+  }
+}

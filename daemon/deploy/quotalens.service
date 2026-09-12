@@ -1,0 +1,36 @@
+# QuotaLens daemon as a systemd *user* unit (PLAN T1.6, Linux branch).
+#
+# UNTESTED: the owner's desktop is macOS (M0-C C1), so only the launchd plist next to this file has
+# been run. Treat this as the Linux template the PLAN asks for, not as verified configuration.
+#
+# A user unit (`systemctl --user`), not a system unit: the daemon reads ~/.claude/.credentials.json,
+# ~/.codex/auth.json and ~/.quotalens, which belong to the logged-in user.
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp daemon/deploy/quotalens.service ~/.config/systemd/user/
+#   # edit the two %h-relative paths below if the repo lives elsewhere
+#   systemctl --user daemon-reload && systemctl --user enable --now quotalens
+#   loginctl enable-linger "$USER"   # keep it running when no session is open
+#
+# Logs: journalctl --user -u quotalens -f
+#   The journal is NOT private to this user (systemd-journal / adm / wheel members can read it), so
+#   nothing secret goes there: the daemon never logs the path secret nor any token. The secret lives
+#   only in ~/.quotalens/config.json (0600).
+
+[Unit]
+Description=QuotaLens usage daemon (Claude + Codex quota relay)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/quotaLens
+# tsx is the daemon's TypeScript runtime (same as `npm run dev`).
+ExecStart=/usr/bin/node %h/quotaLens/node_modules/tsx/dist/cli.mjs %h/quotaLens/daemon/src/index.ts
+# `codex app-server` (T1.4) is spawned by name; keep its directory on PATH.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
