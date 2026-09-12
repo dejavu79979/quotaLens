@@ -1,5 +1,7 @@
 # QuotaLens
 
+**English** · [繁體中文](README.zh-TW.md) · [简体中文](README.zh-CN.md)
+
 QuotaLens shows Claude Code and Codex subscription usage on Even Realities G2 glasses. A self-hosted desktop daemon reads local usage sources, serves percentages and reset times over your [Tailscale](https://tailscale.com/) tailnet (a private WireGuard network between your own devices, free for personal use), and the Even Hub app renders them on the glasses with R1 ring or temple controls.
 
 Open this repository in Claude Code or Codex and ask it to install QuotaLens or diagnose a connection or missing-source problem; `CLAUDE.md` and `AGENTS.md` provide the required runbooks and security rules.
