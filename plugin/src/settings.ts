@@ -50,10 +50,13 @@ export const RELAY_PORT = 8787;
 export function normalizeRelayBase(text: string): string {
   const trimmed = text.trim();
   if (trimmed === '') return '';
-  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  // Resolve bare addresses as network-path references. The base supplies only the
+  // default protocol; the user's address supplies the host (no request to the base).
+  // A full URL template becomes a fake unlisted host in the Hub's static scan.
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `//${trimmed}`;
   let url: URL;
   try {
-    url = new URL(withScheme);
+    url = new URL(withScheme, 'http://127.0.0.1:8787');
   } catch {
     return trimmed;
   }

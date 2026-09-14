@@ -2,7 +2,7 @@
   "package_id": "dev.bruce.quotalens",
   "edition": "202601",
   "name": "QuotaLens",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "min_app_version": "2.2.10",
   "min_sdk_version": "0.0.15",
   "entrypoint": "index.html",

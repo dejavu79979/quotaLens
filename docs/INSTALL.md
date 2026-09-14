@@ -99,6 +99,8 @@ When an update fails, QuotaLens keeps the last good values and marks them `stale
 
 The macOS log is `~/Library/Logs/quotalens.log`. It contains no tokens. The relay address is not a credential, but the service must remain available only inside the tailnet.
 
+If **Test connection** times out even after reopening Tailscale, confirm that Tailscale actually shows **Connected**. Opening the app or connecting the phone by USB does not establish the VPN tunnel. Keep Tailscale in the foreground until connected, return to QuotaLens, and test again. If it works only while Tailscale is in the foreground, investigate the phone's background restrictions and whether Tailscale's VPN service remains active; do not assume a plugin rebuild or a longer timeout will fix the connection.
+
 ## 6. Security boundary and whitelist limitation
 
 - Tokens are read only by the desktop daemon and sent only to the official Anthropic or OpenAI HTTPS endpoint. They never enter the relay payload, logs, or git.
