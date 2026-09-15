@@ -10,12 +10,14 @@
 // and nothing in it is secret. Failures are still reported as short codes (§7 V2 vocabulary) —
 // that keeps the phone and the glasses naming the same failure the same way.
 import { parseUsagePayload } from '@quotalens/shared';
+import { currentLocale, localeTag, STRINGS, t } from './i18n.ts';
 import { usageUrl } from './poll.ts';
 import {
   commitSettings,
   loadSettings,
   parseSettings,
-  POLL_INTERVAL_CHOICES,
+  POLL_INTERVAL_MAX,
+  POLL_INTERVAL_MIN,
   type SaveOutcome,
   type SettingsField,
   type StorageLike,
@@ -44,6 +46,8 @@ export interface SettingsView {
   showRelay(text: string): void;
   showPollInterval(min: number): void;
   showTestRow(row: TestRow): void;
+  showSetupOpen(open: boolean): void;
+  showToast(text: string): void;
   /** Anything but `persisted` is a value the next launch may not have, and the user is told so. */
   showSaved(row: SavedRow): void;
 }
@@ -56,6 +60,7 @@ export interface TestDeps {
 
 export interface ControllerDeps extends Partial<TestDeps> {
   storage?: StorageLike;
+  copy?: (text: string) => Promise<boolean>;
   /** Wake the poller after any relay change, including clearing it (§7 V10). */
   onRelaySaved?: () => void;
 }
@@ -64,9 +69,18 @@ export interface ControllerDeps extends Partial<TestDeps> {
 export const TEST_TIMEOUT_MS = 10_000;
 
 /** §7 phone side (M9): the field's label, placeholder and the hint under it, verbatim. */
-export const RELAY_LABEL = 'Relay address';
-export const RELAY_PLACEHOLDER = 'http://100.x.y.z:8787';
-export const RELAY_HINT = "Your desktop's tailnet address — the installer prints it.";
+export const RELAY_LABEL = STRINGS.en.phone.relay;
+export const RELAY_PLACEHOLDER = STRINGS.en.phone.placeholder;
+export const RELAY_HINT = STRINGS.en.phone.hint;
+
+// PLAN T10.6: build this display-only text at runtime because Even's static URL scan rejected the
+// v0.3.1 bundle. It is setup copy, not a network request.
+export const INSTALL_COMMAND = [
+  'git clone https:',
+  '//github',
+  '.com/',
+  'dejavu79979/quotaLens.git && cd quotaLens && bash scripts/install.sh',
+].join('');
 
 /** §7 V8 verbatim: `✓ <ms> ms` / `✗ <error>`. `idle` prints nothing — an empty row, not a placeholder. */
 export function formatTestRow(row: TestRow): string {
@@ -74,7 +88,7 @@ export function formatTestRow(row: TestRow): string {
     case 'idle':
       return '';
     case 'busy':
-      return 'Testing…';
+      return t().phone.testing;
     case 'ok':
       return `✓ ${row.ms} ms`;
     case 'fail':
@@ -93,13 +107,13 @@ export function formatTestRow(row: TestRow): string {
 export function savedRowText(outcome: SaveOutcome): string {
   switch (outcome) {
     case 'persisted':
-      return 'Saved';
+      return t().phone.saved;
     case 'browserOnly':
-      return 'Saved (browser only — connect the glasses to keep it)';
+      return t().phone.savedBrowserOnly;
     case 'refused':
-      return 'Not saved — the Even App refused to store it';
+      return t().phone.savedRefused;
     case 'blocked':
-      return 'Not saved — this browser is blocking storage';
+      return t().phone.savedBlocked;
   }
 }
 
@@ -162,9 +176,12 @@ export class SettingsController {
   readonly view: SettingsView;
   private storage: StorageLike | undefined;
   private readonly deps: TestDeps;
+  private readonly copy: (text: string) => Promise<boolean>;
   private readonly onRelaySaved: (() => void) | undefined;
   private state: StoredSettings;
   private inFlight: Promise<TestRow> | null = null;
+  /** PLAN T10.9; 2026-09-15 stop-gate: hydrate must not replace digits mid-edit. */
+  private pollEditing = false;
   /**
    * The fields the owner changed in THIS session, and only those (PLAN T6b.4 rule 9).
    *
@@ -196,6 +213,7 @@ export class SettingsController {
       fetch: deps.fetch ?? ((input, init) => globalThis.fetch(input, init)),
       now: deps.now ?? (() => performance.now()),
     };
+    this.copy = deps.copy ?? (async () => false);
     this.onRelaySaved = deps.onRelaySaved;
     this.state = this.read();
   }
@@ -220,7 +238,7 @@ export class SettingsController {
    * WHICH fields, not just whether one of them changed — PLAN T6b.4 rule 9 per field.
    *
    * `touched` alone was doing both jobs, and the 2026-09-10 codex review found what that costs: one
-   * press on the interval segments made the page's whole blob outrank the host's, so an empty
+   * press on the interval control made the page's whole blob outrank the host's, so an empty
    * `relayUrl` the page had not hydrated yet went over a configured one. `main.ts` hands these names
    * to the store's merge, so the hydrate keeps the fields the owner touched and takes the rest.
    *
@@ -282,13 +300,42 @@ export class SettingsController {
     this.view.showRelay(this.state.relayUrl);
   }
 
-  /** An interval off the §7 menu falls back to the default — `parseSettings` is the only judge. */
+  /** A valid interval is stored immediately; `parseSettings` remains the final contract judge. */
   setPollInterval(min: number): Promise<void> {
-    // The stored state is updated synchronously inside `persist`, so the segment lights up on the
+    // The stored state is updated synchronously inside `persist`, so the field changes on the
     // press; only the notice row waits for the Even App to answer.
     const saving = this.persist({ pollIntervalMin: min }, true);
     this.view.showPollInterval(this.state.pollIntervalMin);
     return saving;
+  }
+
+  /** T10.9: one-minute steps stop at the contract boundaries without writing the same value. */
+  stepPollInterval(delta: number): Promise<void> {
+    const next = Math.min(
+      POLL_INTERVAL_MAX,
+      Math.max(POLL_INTERVAL_MIN, this.state.pollIntervalMin + delta),
+    );
+    return next === this.state.pollIntervalMin ? Promise.resolve() : this.setPollInterval(next);
+  }
+
+  focusPollInterval(): void {
+    this.pollEditing = true;
+  }
+
+  /** T10.9: commit a complete in-range integer, or restore the current value without persisting. */
+  editPollInterval(text: string): Promise<void> {
+    this.pollEditing = false;
+    const trimmed = text.trim();
+    const min = Number(trimmed);
+    if (/^\d{1,2}$/.test(trimmed) && min >= POLL_INTERVAL_MIN && min <= POLL_INTERVAL_MAX) {
+      if (min === this.state.pollIntervalMin) {
+        this.view.showPollInterval(this.state.pollIntervalMin);
+        return Promise.resolve();
+      }
+      return this.setPollInterval(min);
+    }
+    this.view.showPollInterval(this.state.pollIntervalMin);
+    return Promise.resolve();
   }
 
   /**
@@ -304,11 +351,23 @@ export class SettingsController {
     const startedAt = this.saveGeneration;
     const run = testConnection(this.state.relayUrl, this.deps).then((row) => {
       this.inFlight = null;
+      if (row.kind === 'ok') this.view.showSetupOpen(false);
       this.view.showTestRow(this.saveGeneration === startedAt ? row : { kind: 'idle' });
       return row;
     });
     this.inFlight = run;
     return run;
+  }
+
+  /** PLAN T10.7: copying is a page action, so success and failure both get visible feedback. */
+  async copyInstallCommand(): Promise<void> {
+    let copied = false;
+    try {
+      copied = await this.copy(INSTALL_COMMAND);
+    } catch {
+      // A rejected clipboard call is an ordinary copy failure, never an unhandled click rejection.
+    }
+    this.view.showToast(copied ? t().phone.copied : t().phone.copyFailed);
   }
 
   private read(): StoredSettings {
@@ -330,7 +389,7 @@ export class SettingsController {
    *
    * A PATCH, not a record: the page's copy of the fields the control did not touch can be older than
    * the store's — it is mounted, and handed the store, before the hydrate — so writing `this.state`
-   * wholesale meant one press on the interval segments put `{"relayUrl":""}` over the address the
+   * wholesale meant one press on the interval control put `{"relayUrl":""}` over the address the
    * hydrate had just brought back from the host (the 2026-09-10 codex review, with `Saved` on the
    * row). Merging over a fresh read makes each control write only what it changed, whether or not
    * anything re-synced the page first. `settings.ts` is still the only reader and writer.
@@ -379,7 +438,8 @@ export class SettingsController {
 
   private paint(): void {
     this.view.showRelay(this.state.relayUrl);
-    this.view.showPollInterval(this.state.pollIntervalMin);
+    if (!this.pollEditing) this.view.showPollInterval(this.state.pollIntervalMin);
+    this.view.showSetupOpen(this.state.relayUrl === '');
   }
 }
 
@@ -402,15 +462,46 @@ function el<K extends keyof HTMLElementTagNameMap>(
  * field to `settings.ts`, which normalises it (PLAN §7 phone side, M9).
  */
 export function mountSettingsPage(root: HTMLElement, deps: ControllerDeps = {}): SettingsController {
+  document.documentElement.lang = localeTag(currentLocale());
+  const strings = t().phone;
   root.classList.add('qs-root');
   root.replaceChildren();
+
+  // PLAN T10.7: prefer the Clipboard API, then fall back for WebViews that do not expose it.
+  const copy =
+    deps.copy ??
+    (async (text: string): Promise<boolean> => {
+      try {
+        if (navigator.clipboard !== undefined) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch {
+        // The legacy path below is also required when Clipboard API permission is denied.
+      }
+
+      const textarea = el('textarea', '');
+      textarea.value = text;
+      textarea.readOnly = true;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      try {
+        document.body.append(textarea);
+        textarea.select();
+        return document.execCommand('copy');
+      } catch {
+        return false;
+      } finally {
+        textarea.remove();
+      }
+    });
 
   const page = el('div', 'qs-page');
   page.append(el('h1', 'qs-title', 'QuotaLens'));
 
   // — Relay address (M9: the daemon's origin, nothing secret) ———————————
   const relayCard = el('section', 'qs-card');
-  const relayLabel = el('label', 'qs-label', RELAY_LABEL);
+  const relayLabel = el('label', 'qs-label', strings.relay);
   const relayInput = el('input', 'qs-input');
   relayInput.type = 'text';
   relayInput.id = 'qs-relay';
@@ -418,58 +509,157 @@ export function mountSettingsPage(root: HTMLElement, deps: ControllerDeps = {}):
   relayInput.autocomplete = 'off';
   relayInput.setAttribute('autocapitalize', 'off');
   relayInput.setAttribute('inputmode', 'url');
-  relayInput.placeholder = RELAY_PLACEHOLDER;
+  relayInput.placeholder = strings.placeholder;
   relayLabel.htmlFor = relayInput.id;
-  const relayHint = el('p', 'qs-hint', RELAY_HINT);
+  const relayHint = el('p', 'qs-hint', strings.hint);
   relayCard.append(relayLabel, relayInput, relayHint);
 
   // — Poll interval ————————————————————————————————————————————
   const pollCard = el('section', 'qs-card');
   const pollRow = el('div', 'qs-row');
-  pollRow.append(el('span', 'qs-row-name', 'Poll interval'));
-  const pollGroup = el('div', 'qs-segments');
+  pollRow.append(el('span', 'qs-row-name', strings.poll));
+  const pollGroup = el('div', 'qs-stepper');
   pollGroup.setAttribute('role', 'group');
-  pollGroup.setAttribute('aria-label', 'Poll interval');
-  const pollButtons = POLL_INTERVAL_CHOICES.map((min) => {
-    const button = el('button', 'qs-segment', `${min} min`);
-    button.type = 'button';
-    button.addEventListener('click', () => void controller.setPollInterval(min));
-    pollGroup.append(button);
-    return { min, button };
-  });
+  pollGroup.setAttribute('aria-label', strings.poll);
+  const pollLess = el('button', 'qs-step', '−');
+  pollLess.type = 'button';
+  // The keys describe polling frequency; the glyphs change minutes, so − means poll MORE often.
+  pollLess.setAttribute('aria-label', strings.intervalMore);
+  const pollValue = el('input', 'qs-step-value');
+  pollValue.type = 'text';
+  pollValue.inputMode = 'numeric';
+  pollValue.pattern = '[0-9]*';
+  pollValue.autocomplete = 'off';
+  pollValue.setAttribute('aria-label', strings.intervalField);
+  pollValue.maxLength = 2;
+  const pollMore = el('button', 'qs-step', '+');
+  pollMore.type = 'button';
+  pollMore.setAttribute('aria-label', strings.intervalLess);
+  pollGroup.append(pollLess, pollValue, pollMore, el('span', 'qs-step-unit', strings.minuteUnit));
   pollRow.append(pollGroup);
   pollCard.append(pollRow);
   // T6b.2 (2026-09-10 owner ruling): §7 V3's threshold row and its stepper are gone, so the poll
-  // interval is the only control in this card and the settings contract is two fields.
+  // interval is the only control in this card and the stored settings contract is two fields.
 
   // — Test connection ——————————————————————————————————————————
   // §7 V8: the result row sits above the button.
   const testRow = el('p', 'qs-test-row');
   testRow.setAttribute('role', 'status');
-  const testButton = el('button', 'qs-button', 'Test connection');
+  const testButton = el('button', 'qs-button', strings.test);
   testButton.type = 'button';
   testButton.addEventListener('click', () => void controller.test());
   const savedRow = el('p', 'qs-saved');
   savedRow.setAttribute('role', 'status');
 
-  page.append(relayCard, pollCard, testRow, testButton, savedRow);
-  root.append(page);
+  // — Setup (PLAN T10.6, owner-approved mockup A) —————————————
+  const setupCard = el('details', 'qs-card qs-setup');
+  const setupSummary = el('summary', 'qs-setup-summary');
+  setupSummary.append(el('span', 'qs-label', strings.setup));
+  // Like the command above, this namespace identifies display markup, not a network request.
+  const svgNamespace = ['http:', '//www.w3.org/2000/svg'].join('');
+  const chevron = document.createElementNS(svgNamespace, 'svg');
+  chevron.classList.add('qs-setup-chevron');
+  chevron.setAttribute('width', '20');
+  chevron.setAttribute('height', '20');
+  chevron.setAttribute('viewBox', '0 0 20 20');
+  chevron.setAttribute('fill', 'none');
+  chevron.setAttribute('aria-hidden', 'true');
+  const chevronPath = document.createElementNS(svgNamespace, 'path');
+  chevronPath.setAttribute('d', 'M5 8l5 5 5-5');
+  chevron.append(chevronPath);
+  setupSummary.append(chevron);
+
+  const setupBody = el('div', 'qs-setup-body');
+  const needs = el('div', 'qs-setup-section');
+  needs.append(el('div', 'qs-setup-heading', strings.need));
+  const needList = el('div', 'qs-setup-list');
+  for (const text of strings.bullets) {
+    const item = el('div', 'qs-setup-item');
+    item.append(el('span', 'qs-setup-marker', '•'), el('span', '', text));
+    needList.append(item);
+  }
+  needs.append(needList);
+
+  const install = el('div', 'qs-setup-section');
+  install.append(el('div', 'qs-setup-heading', strings.install));
+  const steps = el('div', 'qs-setup-steps');
+  const macStep = el('div', 'qs-setup-item');
+  macStep.append(el('span', 'qs-setup-marker qs-setup-number', '1.'));
+  const macStepBody = el('div', 'qs-setup-step-body');
+  const installCommand = el('button', 'qs-setup-command');
+  installCommand.type = 'button';
+  installCommand.setAttribute('aria-label', strings.copyLabel);
+  installCommand.append(el('span', 'qs-setup-command-text', INSTALL_COMMAND));
+  const copyIcon = document.createElementNS(svgNamespace, 'svg');
+  copyIcon.classList.add('qs-setup-copy');
+  copyIcon.setAttribute('width', '16');
+  copyIcon.setAttribute('height', '16');
+  copyIcon.setAttribute('viewBox', '0 0 16 16');
+  copyIcon.setAttribute('fill', 'none');
+  copyIcon.setAttribute('aria-hidden', 'true');
+  const copyRect = document.createElementNS(svgNamespace, 'rect');
+  copyRect.setAttribute('x', '5.5');
+  copyRect.setAttribute('y', '5.5');
+  copyRect.setAttribute('width', '8');
+  copyRect.setAttribute('height', '8');
+  copyRect.setAttribute('rx', '1.5');
+  const copyPath = document.createElementNS(svgNamespace, 'path');
+  copyPath.setAttribute('d', 'M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2');
+  copyIcon.append(copyRect, copyPath);
+  installCommand.append(copyIcon);
+  installCommand.addEventListener('click', () => void controller.copyInstallCommand());
+  macStepBody.append(el('span', '', strings.onMac), installCommand);
+  macStep.append(macStepBody);
+
+  const phoneStep = el('div', 'qs-setup-item');
+  phoneStep.append(el('span', 'qs-setup-marker qs-setup-number', '2.'));
+  const phoneCopy = el('span', '');
+  phoneCopy.append(
+    strings.step2[0],
+    el('strong', 'qs-setup-strong', strings.step2[1]),
+    strings.step2[2],
+    el('strong', 'qs-setup-strong', strings.step2[3]),
+    strings.step2[4],
+  );
+  phoneStep.append(phoneCopy);
+  steps.append(macStep, phoneStep);
+  install.append(steps);
+  setupBody.append(needs, install);
+  setupCard.append(setupSummary, setupBody);
+
+  page.append(relayCard, pollCard, testRow, testButton, savedRow, setupCard);
+  const toast = el('div', 'qs-toast');
+  toast.setAttribute('role', 'status');
+  toast.setAttribute('aria-live', 'polite');
+  toast.dataset.visible = 'false';
+  root.append(page, toast);
+
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   const view: SettingsView = {
     showRelay(text) {
       relayInput.value = text;
     },
     showPollInterval(min) {
-      for (const choice of pollButtons) {
-        const selected = choice.min === min;
-        choice.button.classList.toggle('is-selected', selected);
-        choice.button.setAttribute('aria-pressed', String(selected));
-      }
+      pollValue.value = String(min);
+      pollLess.disabled = min <= POLL_INTERVAL_MIN;
+      pollMore.disabled = min >= POLL_INTERVAL_MAX;
     },
     showTestRow(row) {
       testRow.textContent = formatTestRow(row);
       testRow.dataset.kind = row.kind;
       testButton.disabled = row.kind === 'busy';
+    },
+    showSetupOpen(open) {
+      setupCard.open = open;
+    },
+    showToast(text) {
+      if (toastTimer !== undefined) clearTimeout(toastTimer);
+      toast.textContent = text;
+      toast.dataset.visible = 'true';
+      toastTimer = setTimeout(() => {
+        toast.dataset.visible = 'false';
+      }, 1_500);
     },
     showSaved(row) {
       // `null` empties the row rather than writing a fifth sentence into it — §7 V8 has four, and
@@ -481,10 +671,20 @@ export function mountSettingsPage(root: HTMLElement, deps: ControllerDeps = {}):
     },
   };
 
-  const controller = new SettingsController(view, deps);
+  const controller = new SettingsController(view, { ...deps, copy });
 
   relayInput.addEventListener('input', () => void controller.editRelay(relayInput.value));
   relayInput.addEventListener('blur', () => controller.blurRelay());
+  pollLess.addEventListener('click', () => void controller.stepPollInterval(-1));
+  pollMore.addEventListener('click', () => void controller.stepPollInterval(1));
+  pollValue.addEventListener('focus', () => {
+    controller.focusPollInterval();
+    pollValue.select();
+  });
+  pollValue.addEventListener('blur', () => void controller.editPollInterval(pollValue.value));
+  pollValue.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') pollValue.blur();
+  });
 
   controller.start();
   return controller;

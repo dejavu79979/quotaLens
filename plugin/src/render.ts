@@ -153,7 +153,8 @@ export interface PluginSettings {
   pollIntervalMin: number;
 }
 
-export const DEFAULT_SETTINGS: PluginSettings = { pollIntervalMin: 5 };
+/** PLAN T10.9: poll every three minutes by default (was five). */
+export const DEFAULT_SETTINGS: PluginSettings = { pollIntervalMin: 3 };
 
 /**
  * Everything a screen needs to draw itself.

@@ -112,32 +112,58 @@
 .qs-row-name {
   font-size: 16px;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
-.qs-segments {
+/* PLAN T10.9: at 320px outer-screen width, the 248px inner row needs a ≤132px stepper so every language keeps ≥108px for its label. */
+.qs-stepper {
+  flex: none;
   display: flex;
-  gap: var(--qs-1);
+  align-items: center;
+  gap: 2px;
 }
 
-/* T6b.2: §7 V3's threshold stepper (`.qs-stepper` / `.qs-step` / `.qs-step-value`) is gone, so the
-   segmented poll-interval control is the only button group left in a row. */
-.qs-segment {
-  border: 1px solid transparent;
+.qs-step {
+  width: 30px;
+  height: 32px;
+  border: none;
   border-radius: var(--qs-2);
   background: var(--qs-bg);
   color: var(--qs-text);
   font: inherit;
-  font-size: 13px;
-  padding: var(--qs-2) var(--qs-3);
-  min-height: 32px;
+  font-size: 18px;
   cursor: pointer;
 }
 
-/* Visible feedback for the selection — the row must never leave "which one is it?" unanswered. */
-.qs-segment.is-selected {
-  background: var(--qs-accent);
-  color: var(--qs-text-on-accent);
+.qs-step:disabled {
+  opacity: 0.4;
+}
+
+.qs-step-value {
+  min-width: 36px;
+  width: 36px;
+  height: 32px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: var(--qs-2);
+  background: var(--qs-field);
+  text-align: center;
+  font: inherit;
+  font-size: 16px;
   font-weight: 500;
+  color: var(--qs-text);
+}
+
+.qs-step-value:focus {
+  outline: none;
+  border-color: var(--qs-text);
+}
+
+.qs-step-unit {
+  margin-left: 4px;
+  font-size: 13px;
+  color: var(--qs-muted);
+  white-space: nowrap;
 }
 
 /* §7 V8 — the result row sits directly above the button. */
@@ -194,4 +220,161 @@
  */
 .qs-saved[data-kind='partial'] {
   color: var(--qs-text);
+}
+
+/* PLAN T10.6: native details keeps the whole 44px summary row clickable and owns manual toggling. */
+.qs-setup {
+  display: block;
+  padding: 0 var(--qs-4);
+}
+
+.qs-setup[open] {
+  padding-bottom: var(--qs-4);
+}
+
+.qs-setup-summary {
+  min-height: 44px;
+  margin: 0 calc(-1 * var(--qs-4));
+  padding: 0 var(--qs-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+}
+
+.qs-setup-summary::-webkit-details-marker {
+  display: none;
+}
+
+.qs-setup-chevron {
+  flex: none;
+  stroke: var(--qs-muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 120ms ease;
+}
+
+.qs-setup[open] .qs-setup-chevron {
+  transform: rotate(180deg);
+}
+
+.qs-setup-body {
+  margin-top: var(--qs-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qs-3);
+}
+
+.qs-setup-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--qs-2);
+}
+
+.qs-setup-heading {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.qs-setup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.qs-setup-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.qs-setup-item {
+  display: flex;
+  gap: var(--qs-2);
+}
+
+.qs-setup-marker {
+  color: var(--qs-muted);
+}
+
+.qs-setup-number {
+  min-width: 14px;
+}
+
+.qs-setup-step-body {
+  min-width: 0;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qs-setup-command {
+  width: 100%;
+  padding: 10px var(--qs-3);
+  border: none;
+  border-radius: var(--qs-2);
+  background: var(--qs-field);
+  color: var(--qs-text);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 17px;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--qs-2);
+  cursor: pointer;
+}
+
+.qs-setup-command:active {
+  background: rgba(35, 35, 35, 0.14);
+}
+
+.qs-setup-command-text {
+  min-width: 0;
+  flex-grow: 1;
+  word-break: break-all;
+}
+
+.qs-setup-copy {
+  flex: none;
+  margin-top: 1px;
+  stroke: var(--qs-muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.qs-setup-strong {
+  font-weight: 500;
+}
+
+/* PLAN T10.7: one shared status pill; repeated presses reset its one timer instead of stacking. */
+.qs-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  padding: 10px var(--qs-4);
+  border-radius: 999px;
+  background: var(--qs-text);
+  color: var(--qs-bg);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.qs-toast[data-visible='true'] {
+  opacity: 1;
 }

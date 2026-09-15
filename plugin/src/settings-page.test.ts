@@ -15,6 +15,7 @@ import {
 import {
   SettingsController,
   formatTestRow,
+  INSTALL_COMMAND,
   RELAY_HINT,
   RELAY_LABEL,
   RELAY_PLACEHOLDER,
@@ -35,7 +36,7 @@ const GOOD_PAYLOAD = DEMO_PAYLOAD;
 
 /** The two methods the page uses, with a switch for the WebView that blocks site data. */
 function fakeStorage(initial: string | null = null) {
-  const store = { value: initial, throws: false };
+  const store = { value: initial, throws: false, writes: 0 };
   return {
     store,
     getItem: (key: string) => {
@@ -44,7 +45,10 @@ function fakeStorage(initial: string | null = null) {
     },
     setItem: (key: string, value: string) => {
       if (store.throws) throw new Error('site data is blocked');
-      if (key === SETTINGS_KEY) store.value = value;
+      if (key === SETTINGS_KEY) {
+        store.value = value;
+        store.writes += 1;
+      }
     },
   };
 }
@@ -55,6 +59,8 @@ function fakeView() {
     relay: [] as string[],
     poll: [] as number[],
     test: [] as TestRow[],
+    setupOpen: [] as boolean[],
+    toast: [] as string[],
     // `SavedRow`, not `SaveOutcome`: `null` is the blank row, which is what a commit still in
     // flight leaves behind (PLAN T6b.4 spec item 3).
     saved: [] as SavedRow[],
@@ -63,6 +69,8 @@ function fakeView() {
     showRelay: (text) => void seen.relay.push(text),
     showPollInterval: (min) => void seen.poll.push(min),
     showTestRow: (row) => void seen.test.push(row),
+    showSetupOpen: (open) => void seen.setupOpen.push(open),
+    showToast: (text) => void seen.toast.push(text),
     showSaved: (outcome) => void seen.saved.push(outcome),
   };
   const last = <T>(xs: T[]): T => xs[xs.length - 1] as T;
@@ -73,18 +81,105 @@ function okResponse(body: unknown, status = 200): Response {
   return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
 }
 
-test('M9 — the field copy is §7 phone side verbatim, and the seam is the four paint methods', () => {
+test('M9/T10.7 — the field copy is verbatim, and the seam has only the six paint methods', () => {
   assert.equal(RELAY_LABEL, 'Relay address');
   assert.equal(RELAY_PLACEHOLDER, 'http://100.x.y.z:8787');
   assert.equal(RELAY_HINT, "Your desktop's tailnet address — the installer prints it.");
   const { view } = fakeView();
   const controller = new SettingsController(view, { storage: fakeStorage() });
   // T6b.2 removed the threshold control; M9 removed the Scan button, its row and the glasses hint.
-  assert.deepEqual(Object.keys(view).sort(), ['showPollInterval', 'showRelay', 'showSaved', 'showTestRow']);
+  assert.deepEqual(Object.keys(view).sort(), [
+    'showPollInterval',
+    'showRelay',
+    'showSaved',
+    'showSetupOpen',
+    'showTestRow',
+    'showToast',
+  ]);
   assert.deepEqual(Object.keys(controller.settings).sort(), ['pollIntervalMin', 'relayUrl']);
   for (const gone of ['stepWarn', 'showWarnAt', 'scan', 'enableScan', 'glassesConnected', 'focusRelay']) {
     assert.equal((controller as unknown as Record<string, unknown>)[gone], undefined, `${gone} survived`);
   }
+});
+
+test('T10.6 the install command joins to the owner-approved display text', () => {
+  assert.equal(
+    INSTALL_COMMAND,
+    'git clone https://github.com/dejavu79979/quotaLens.git && cd quotaLens && bash scripts/install.sh',
+  );
+});
+
+test('T10.7 copies the complete install command and reports success', async () => {
+  const page = fakeView();
+  let copied = '';
+  const controller = new SettingsController(page.view, {
+    copy: async (text) => {
+      copied = text;
+      return true;
+    },
+  });
+
+  await controller.copyInstallCommand();
+
+  assert.equal(copied, INSTALL_COMMAND);
+  assert.deepEqual(page.seen.toast, ['Copied']);
+});
+
+test('T10.7 reports copy failure, including a rejected copy call', async () => {
+  const refused = fakeView();
+  await new SettingsController(refused.view, { copy: async () => false }).copyInstallCommand();
+  assert.deepEqual(refused.seen.toast, ['Copy failed — select the text']);
+
+  const rejected = fakeView();
+  const controller = new SettingsController(rejected.view, {
+    copy: async () => {
+      throw new Error('clipboard unavailable');
+    },
+  });
+  await assert.doesNotReject(() => controller.copyInstallCommand());
+  assert.deepEqual(rejected.seen.toast, ['Copy failed — select the text']);
+});
+
+test('T10.6 start and resync derive Setup from the stored relay address', () => {
+  const empty = fakeView();
+  const emptyController = new SettingsController(empty.view, { storage: fakeStorage() });
+  emptyController.start();
+  assert.deepEqual(empty.seen.setupOpen, [true]);
+
+  emptyController.useStorage(
+    fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 10 })),
+  );
+  assert.deepEqual(empty.seen.setupOpen, [true, false]);
+
+  const configured = fakeView();
+  new SettingsController(configured.view, {
+    storage: fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 5 })),
+  }).start();
+  assert.deepEqual(configured.seen.setupOpen, [false]);
+});
+
+test('T10.6 a successful Test connection closes Setup', async () => {
+  const page = fakeView();
+  const controller = new SettingsController(page.view, {
+    storage: fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 5 })),
+    fetch: async () => okResponse(GOOD_PAYLOAD),
+    now: () => 0,
+  });
+  await controller.test();
+  assert.deepEqual(page.seen.setupOpen, [false]);
+});
+
+test('T10.6 failed and busy Test connection states do not change Setup', async () => {
+  const page = fakeView();
+  const controller = new SettingsController(page.view, {
+    storage: fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 5 })),
+    fetch: async () => okResponse(null, 500),
+    now: () => 0,
+  });
+  const testing = controller.test();
+  assert.deepEqual(page.seen.setupOpen, [], 'busy changed Setup');
+  await testing;
+  assert.deepEqual(page.seen.setupOpen, [], 'fail changed Setup');
 });
 
 test('the result row is §7 V8 verbatim', () => {
@@ -178,6 +273,123 @@ test('settings survive a restart: what one page saved, the next page loads', asy
   assert.deepEqual(reader.settings, { relayUrl: RELAY, pollIntervalMin: 10 });
   assert.equal(second.last(second.seen.relay), RELAY);
   assert.equal(second.last(second.seen.poll), 10);
+});
+
+test('T10.9 the controller starts at three minutes and steps from 3 to 4', async () => {
+  const storage = fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 3 }));
+  const page = fakeView();
+  const controller = new SettingsController(page.view, { storage });
+  controller.start();
+
+  assert.equal(controller.settings.pollIntervalMin, 3);
+  await controller.stepPollInterval(1);
+
+  assert.equal(controller.settings.pollIntervalMin, 4);
+  assert.equal(page.last(page.seen.poll), 4);
+  assert.equal(JSON.parse(storage.store.value as string).pollIntervalMin, 4);
+  assert.equal(storage.store.writes, 1);
+});
+
+test('T10.9 interval steps stop at 1 and 60 without persisting or recording an edit', async () => {
+  for (const [initial, delta] of [
+    [1, -1],
+    [60, 1],
+  ] as const) {
+    const storage = fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: initial }));
+    const page = fakeView();
+    const controller = new SettingsController(page.view, { storage });
+    controller.start();
+
+    await controller.stepPollInterval(delta);
+
+    assert.equal(controller.settings.pollIntervalMin, initial);
+    assert.equal(page.last(page.seen.poll), initial);
+    assert.equal(storage.store.writes, 0);
+    assert.deepEqual(controller.editedFields, []);
+  }
+});
+
+test('T10.9 a valid typed interval persists, while invalid text restores the current value', async () => {
+  const validStorage = fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 3 }));
+  const validPage = fakeView();
+  const valid = new SettingsController(validPage.view, { storage: validStorage });
+  valid.start();
+  await valid.editPollInterval('12');
+  assert.equal(valid.settings.pollIntervalMin, 12);
+  assert.equal(validPage.last(validPage.seen.poll), 12);
+  assert.equal(JSON.parse(validStorage.store.value as string).pollIntervalMin, 12);
+
+  for (const text of ['abc', '0', '99']) {
+    const storage = fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 3 }));
+    const page = fakeView();
+    const controller = new SettingsController(page.view, { storage });
+    controller.start();
+
+    await controller.editPollInterval(text);
+
+    assert.equal(controller.settings.pollIntervalMin, 3, text);
+    assert.deepEqual(page.seen.poll, [3, 3], text);
+    assert.equal(storage.store.writes, 0, text);
+    assert.deepEqual(controller.editedFields, [], text);
+  }
+});
+
+test('T10.9 a typed interval only persists when its valid value changes', async () => {
+  const storage = fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 3 }));
+  const page = fakeView();
+  const controller = new SettingsController(page.view, { storage });
+  controller.start();
+
+  await controller.editPollInterval('3');
+  assert.deepEqual(controller.editedFields, []);
+  assert.deepEqual(page.seen.saved, []);
+
+  await controller.editPollInterval('4');
+  assert.equal(page.seen.saved.length, 1);
+});
+
+test('T10.9 a hydrate resync does not overwrite an interval while it is being typed', async () => {
+  const initial = fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 3 }));
+  const hydratedRelay = 'http://100.64.0.9:8787';
+  const hydrated = fakeStorage(
+    JSON.stringify({ relayUrl: hydratedRelay, pollIntervalMin: 10 }),
+  );
+  const page = fakeView();
+  const controller = new SettingsController(page.view, { storage: initial });
+  controller.start();
+
+  controller.focusPollInterval();
+  controller.useStorage(hydrated);
+
+  assert.deepEqual(page.seen.poll, [3], 'hydrate replaced the digits being typed');
+  assert.deepEqual(page.seen.relay, [RELAY, hydratedRelay], 'relay repaint was suppressed too');
+
+  await controller.editPollInterval('12');
+  assert.equal(controller.settings.pollIntervalMin, 12);
+  assert.deepEqual(page.seen.poll, [3, 12]);
+  assert.equal(JSON.parse(hydrated.store.value as string).pollIntervalMin, 12);
+  assert.equal(hydrated.store.writes, 1);
+
+  const controlPage = fakeView();
+  const control = new SettingsController(controlPage.view, { storage: initial });
+  control.start();
+  control.useStorage(
+    fakeStorage(JSON.stringify({ relayUrl: hydratedRelay, pollIntervalMin: 10 })),
+  );
+  assert.deepEqual(controlPage.seen.poll, [3, 10], 'an idle field did not repaint on resync');
+});
+
+test('T10.9 invalid typed text still restores the interval after focus', async () => {
+  const storage = fakeStorage(JSON.stringify({ relayUrl: RELAY, pollIntervalMin: 3 }));
+  const page = fakeView();
+  const controller = new SettingsController(page.view, { storage });
+  controller.start();
+
+  controller.focusPollInterval();
+  await controller.editPollInterval('abc');
+
+  assert.deepEqual(page.seen.poll, [3, 3]);
+  assert.equal(storage.store.writes, 0);
 });
 
 test('any relay change pokes the poller, while poll interval changes do not', async () => {
@@ -567,11 +779,11 @@ test('an unreadable store starts the page on the defaults instead of not startin
   assert.equal(last(seen.poll), DEFAULT_STORED.pollIntervalMin);
 });
 
-test('an interval off the menu is refused rather than stored', () => {
+test('an interval outside the range is refused rather than adopted', () => {
   const { view, seen, last } = fakeView();
   const controller = new SettingsController(view, { storage: fakeStorage() });
   controller.start();
-  controller.setPollInterval(7);
+  controller.setPollInterval(61);
   assert.equal(controller.settings.pollIntervalMin, DEFAULT_STORED.pollIntervalMin);
   assert.equal(last(seen.poll), DEFAULT_STORED.pollIntervalMin);
 });

@@ -6,6 +6,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { staleThresholdMin } from '@quotalens/shared';
 import { BAR_CELLS, BAR_EMPTY, BAR_FILLED, Formatter, STALE_WIDEST_LABELS } from './format.ts';
+import { setLocale } from './i18n.ts';
 
 /**
  * PLAN T3.2: `filled = Math.round(usedPct * 12 / 100)`, then clamp so 0% and 100% stay the only
@@ -79,6 +80,22 @@ test('Formatter.resetLabel returns an empty suffix when the server sent no reset
   const now = new Date('2026-09-07T12:04:00+10:00');
   assert.equal(Formatter.resetLabel(null, now), '');
   assert.equal(Formatter.resetLabel('not-a-date', now), '');
+});
+
+test('Formatter.resetLabel and staleLabel read ja/de at call time (T10.8)', () => {
+  const now = new Date('2026-09-07T12:04:00+10:00');
+  const fetchedAt = new Date(now.getTime() - 1000 * 60_000).toISOString();
+  try {
+    setLocale('ja');
+    assert.equal(Formatter.resetLabel('2026-09-10T09:00:00+10:00', now), '木 09:00 更新');
+    assert.equal(Formatter.staleLabel('claude', fetchedAt, now, 5), '古い 16h');
+
+    setLocale('de');
+    assert.equal(Formatter.resetLabel('2026-09-07T14:20:00+10:00', now), 'Reset 14:20');
+    assert.equal(Formatter.staleLabel('claude', fetchedAt, now, 5), 'alt 16h');
+  } finally {
+    setLocale('en');
+  }
 });
 
 test('Formatter.staleLabel says ok up to the threshold and stale past it (§3)', () => {

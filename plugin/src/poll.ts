@@ -2,7 +2,7 @@
 //
 // PLAN T3.4, one paragraph at a time:
 //   - boot reads the `localStorage` cache and draws it immediately, then fetches;
-//   - after that it polls on the configured interval (default 5 min), and every 30 s while there
+//   - after that it polls on the configured interval (default 3 min), and every 30 s while there
 //     is no last-good payload (CONNECTING, or UNCONFIGURED without a cache);
 //   - Refresh is the same request with `?refresh=1` (§3: that is what makes the daemon re-read
 //     upstream instead of handing back the same scheduled artefact), debounced by 10 s;

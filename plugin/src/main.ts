@@ -15,6 +15,7 @@ import {
   EXTREME_PAYLOAD,
   NO_DATA_PAYLOAD,
 } from './fixtures.ts';
+import { detectLocale, LOCALES, setLocale } from './i18n.ts';
 import { CACHE_KEY, Poller, readCachedPayload } from './poll.ts';
 import { Renderer, type Screen } from './render.ts';
 import { menuScreen } from './screens/menu.ts';
@@ -33,6 +34,14 @@ const SCREENS: Record<ScreenId, Screen> = {
   all: allScreen,
   menu: menuScreen,
 };
+
+const params = new URLSearchParams(window.location.search);
+setLocale(detectLocale(navigator.languages ?? [navigator.language]));
+if (import.meta.env.DEV) {
+  const override = params.get('lang');
+  const locale = LOCALES.find((candidate) => candidate === override);
+  if (locale !== undefined) setLocale(locale);
+}
 
 // The phone face goes up FIRST, before anything can block on the bridge. `waitForEvenAppBridge()`
 // is a top-level await that never resolves when the glasses are not connected — and "not connected
@@ -54,7 +63,6 @@ const settingsPage =
 // replaces the constant at build time, so a release build cannot reach the fixture branch at all.
 // The fixture DATA is still in the bundle (`FIXTURES` references it unconditionally) — measured, not
 // assumed: `grep 2026-09-07T12:03:41 dist/assets/*.js` still hits. That is dead weight, not a way in.
-const params = new URLSearchParams(window.location.search);
 const fixture = import.meta.env.DEV ? params.get('state') : null;
 // M6b adds three: the 3+3 worst case (frame G2, eight rows) and the two one-tool cases (F1'/F1''),
 // none of which a live daemon can be made to produce on demand either.

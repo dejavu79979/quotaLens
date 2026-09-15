@@ -35,7 +35,7 @@ Captures are from the Even Hub simulator at the G2's 576×288 resolution; the gl
 
 QuotaLens has one settings page inside the Even App. Paste the relay address the desktop installer printed into **Relay address** (it accepts `100.x.y.z`, `100.x.y.z:8787` or the full `http://` origin and normalizes it), pick how often the glasses poll, and tap **Test connection** to confirm the phone can reach the daemon over Tailscale. Changes save immediately; there is no Save button.
 
-![Settings page in the Even App: Relay address field, Poll interval (3 / 5 / 10 min), Test connection](docs/images/phone-settings.png)
+![Settings page in the Even App: Relay address field, Poll interval (1–60 min, default 3), Test connection](docs/images/phone-settings.png)
 
 Demo render of the settings page with a placeholder address; the `✓ <ms>` row is what a successful test looks like, not a measurement.
 

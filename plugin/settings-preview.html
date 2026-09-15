@@ -37,8 +37,11 @@
     <script type="module">
       import { mountSettingsPage } from '/src/settings-page.ts';
       import { DEMO_PAYLOAD } from '/src/fixtures.ts';
+      import { LOCALES, setLocale } from '/src/i18n.ts';
 
       const params = new URLSearchParams(location.search);
+      const locale = LOCALES.find((candidate) => candidate === params.get('lang'));
+      if (locale !== undefined) setLocale(locale);
       const mode = params.get('fetch');
       const stub = {
         ok: async () => new Response(JSON.stringify(DEMO_PAYLOAD), { status: 200 }),

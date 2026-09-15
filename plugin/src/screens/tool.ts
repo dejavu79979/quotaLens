@@ -43,6 +43,7 @@ import {
   STALE_WIDEST_LABELS,
   WIDEST_DIGIT,
 } from '../format.ts';
+import { LOCALES, STRINGS, t } from '../i18n.ts';
 import {
   BODY_BOTTOM,
   BODY_TOP,
@@ -76,39 +77,36 @@ const SECTION_LABEL: Readonly<Record<ToolId, string>> = { claude: 'CLAUDE', code
 /** Separator inside the section row's value: `HH:MM · ok`. `·` U+00B7 confirmed by the T3.1-G gate. */
 const SECTION_SEP = ' · ';
 
-const HEADER_LEFT = 'Agent usage';
-/** §7 "merged page" footer: tap is Refresh and a long press opens the menu; there is no page to turn. */
-const FOOTER_LEFT = 'tap refresh · hold menu';
-/** §7 V2: CONNECTING shows one line in the card; never a blank screen (§6 rule 5). */
-const CONNECTING_LINE = 'Connecting…';
 const CONNECTING_ERROR_FALLBACK = 'net err';
 /**
  * §7 V1, re-judged 2026-09-10: neither tool has ever fetched, so there is no section to draw and no
  * `--` placeholder row any more. Two lines that say so, and say what to do about it.
  */
-export const NO_DATA_LINES: readonly string[] = ['No usage data', 'tap refresh'];
+export const NO_DATA_LINES: readonly string[] = STRINGS.en.glasses.noData;
 /**
  * §7 V7. Shown from the moment Refresh is pressed until that fetch ends; the App owns the lifetime
  * and hands it in as `ScreenInput.statusNotice`. It lives in the footer STATUS column (right).
  */
-export const REFRESHING = 'refreshing…';
+export const REFRESHING = STRINGS.en.glasses.refreshing;
 /**
  * §7 V9 (M6b). A swipe has nowhere to go now, so it answers in the footer-left slot at primary
  * brightness for two seconds. It arrives in `ScreenInput.notice`, the left slot's own field — the
  * page no longer has to tell it apart from §7 V7 by its text (2026-09-10 review).
  */
-export const ONE_PAGE = 'one page · hold menu';
+export const ONE_PAGE = STRINGS.en.glasses.onePage;
 /** §7 V10: feedback when Refresh cannot run before a relay address exists. */
-export const SET_ADDRESS_FIRST = 'set the address first';
-
-const UNCONFIGURED_LINES = ['Set the relay address', 'in the Even App on your phone'] as const;
-const UNCONFIGURED_FOOTER = 'hold menu';
+export const SET_ADDRESS_FIRST = STRINGS.en.glasses.setAddr;
 
 /**
  * Everything §7 lets the footer STATUS column hold after M6b: the §7 V2 error codes and the §7 V7
  * notice. `ok`/`stale …` moved into the section rows, so they are no longer reserved here.
  */
-export const FOOTER_RIGHT_CANDIDATES: readonly string[] = ['net err', '404', 'bad schema', REFRESHING];
+export const FOOTER_RIGHT_CANDIDATES: readonly string[] = [
+  'net err',
+  '404',
+  'bad schema',
+  ...LOCALES.map((locale) => STRINGS[locale].glasses.refreshing),
+];
 
 /**
  * The column's x is fixed at mount time and `textContainerUpgrade` cannot move it (O1: no
@@ -126,15 +124,16 @@ const FOOTER_RIGHT = rightColumn(FOOTER_RIGHT_CANDIDATES);
  * the cheap failure; letting the label push into the value column would misalign every row below it.
  */
 export const LABEL_CANDIDATES: readonly string[] = [
-  '5h',
-  'Week',
-  'Credits',
+  SECTION_LABEL.claude,
+  SECTION_LABEL.codex,
   'Sonnet',
   'Fable',
   'Haiku',
   'Opus',
-  SECTION_LABEL.claude,
-  SECTION_LABEL.codex,
+  ...LOCALES.flatMap((locale) => {
+    const strings = STRINGS[locale].glasses;
+    return [strings.h5, strings.week, strings.credits];
+  }),
 ];
 /**
  * 68px (re-measured 2026-09-10 after T6b.2 dropped the `!` prefixes): `CLAUDE` is the widest label
@@ -311,6 +310,21 @@ export const SECTION_VALUE_CANDIDATES: readonly string[] = (() => {
   return [widestClock, NO_CLOCK].flatMap((clock) => verdicts.map((v) => `${clock}${SECTION_SEP}${v}`));
 })();
 
+/**
+ * PLAN T10.8 keeps these English values as state-machine tokens so app.ts stays untouched; only
+ * the display edge translates them. Unknown notices (including failure codes) remain verbatim.
+ */
+export function localizeNotice(text: string): string {
+  const strings = t().glasses;
+  if (text === ONE_PAGE) return strings.onePage;
+  if (text === SET_ADDRESS_FIRST) return strings.setAddr;
+  if (text === REFRESHING) return strings.refreshing;
+  if (text === STRINGS.en.glasses.soon) return strings.soon;
+  if (text === NO_DATA_LINES[0]) return strings.noData[0];
+  if (text === NO_DATA_LINES[1]) return strings.noData[1];
+  return text;
+}
+
 /** One card row, split at the two column boundaries §7 "merged page" and §7 "bar alignment" ask for. */
 interface CardRow {
   label: string;
@@ -430,8 +444,8 @@ function creditsRow(usage: ToolUsage): CardRow | null {
   // section row: `$4.20 left` is 90px, well past the 46px a percentage is held to — and
   // §7 "right-aligned percentages" leaves it unpadded for the same reason.
   return {
-    label: 'Credits',
-    value: `$${usage.credits.remainingUsd.toFixed(2)} left`,
+    label: t().glasses.credits,
+    value: t().glasses.creditsLeft(`$${usage.credits.remainingUsd.toFixed(2)}`),
     section: false,
     bar: '',
     wide: true,
@@ -440,14 +454,19 @@ function creditsRow(usage: ToolUsage): CardRow | null {
 
 /** The data rows of one section, in §7 order. A null window contributes nothing (§3). */
 function dataRows(tool: ToolId, usage: ToolUsage, input: ScreenInput, scopedModel: string): CardRow[] {
+  const strings = t().glasses;
   const rows =
     tool === 'claude'
       ? [
-          windowRow('5h', usage.fiveHour, input.now),
-          windowRow('Week', usage.weekly, input.now),
+          windowRow(strings.h5, usage.fiveHour, input.now),
+          windowRow(strings.week, usage.weekly, input.now),
           windowRow(scopedModel, usage.weeklySonnet, input.now),
         ]
-      : [windowRow('5h', usage.fiveHour, input.now), windowRow('Week', usage.weekly, input.now), creditsRow(usage)];
+      : [
+          windowRow(strings.h5, usage.fiveHour, input.now),
+          windowRow(strings.week, usage.weekly, input.now),
+          creditsRow(usage),
+        ];
   return rows.filter((row): row is CardRow => row !== null);
 }
 
@@ -500,7 +519,8 @@ function view(input: ScreenInput): AllView {
   // either one silently took the other down (2026-09-10 review).
   const notice = input.notice ?? null;
   const statusNotice = input.statusNotice ?? null;
-  const footerLeft = notice ?? FOOTER_LEFT;
+  const strings = t().glasses;
+  const footerLeft = notice ?? strings.footer;
   const noticeShown = notice !== null;
   const payload = input.payload;
 
@@ -508,10 +528,10 @@ function view(input: ScreenInput): AllView {
   // uses the existing dim overlay identity because one container cannot mix text brightness.
   if (input.unconfigured === true) {
     return {
-      plainLines: [UNCONFIGURED_LINES[0], ''],
-      plainSecondary: ['', UNCONFIGURED_LINES[1]],
+      plainLines: [strings.unconf[0], ''],
+      plainSecondary: ['', strings.unconf[1]],
       rows: [],
-      footerLeft: notice ?? UNCONFIGURED_FOOTER,
+      footerLeft: notice ?? strings.holdMenu,
       footerLeftPrimary: noticeShown,
       footerRight: null,
     };
@@ -522,7 +542,7 @@ function view(input: ScreenInput): AllView {
   // while CONNECTING would otherwise leave the error code up and read as no feedback at all.
   if (payload === null) {
     return {
-      plainLines: [CONNECTING_LINE],
+      plainLines: [strings.connecting],
       plainSecondary: null,
       rows: [],
       footerLeft,
@@ -534,7 +554,14 @@ function view(input: ScreenInput): AllView {
   const drawn = drawnTools(payload);
   // §7 V1 (re-judged): both tools have never fetched, so there is no section and no staleness.
   if (drawn.length === 0) {
-    return { plainLines: NO_DATA_LINES, plainSecondary: null, rows: [], footerLeft, footerLeftPrimary: noticeShown, footerRight: statusNotice };
+    return {
+      plainLines: NO_DATA_LINES.map(localizeNotice),
+      plainSecondary: null,
+      rows: [],
+      footerLeft,
+      footerLeftPrimary: noticeShown,
+      footerRight: statusNotice,
+    };
   }
 
   const scopedModel = scopedModelLabel(payload.ext);
@@ -738,7 +765,7 @@ export const allScreen: Screen = {
         y: HEADER_Y,
         w: HEADER_LEFT_W,
         h: LINE_H,
-        content: Formatter.fitLine(HEADER_LEFT, HEADER_LEFT_W),
+        content: Formatter.fitLine(t().glasses.header, HEADER_LEFT_W),
         brightness: BRIGHT_SECONDARY,
       },
       card,
@@ -759,7 +786,7 @@ export const allScreen: Screen = {
         y: FOOTER_Y,
         w: FOOTER_LEFT_W,
         h: LINE_H,
-        content: Formatter.fitLine(v.footerLeft, FOOTER_LEFT_W),
+        content: Formatter.fitLine(localizeNotice(v.footerLeft), FOOTER_LEFT_W),
         // §7 V9: the swipe answer is primary, the standing hint secondary. `textContainerUpgrade`
         // cannot change `textColor`, which is why raising this notice costs a rebuild — the App's
         // structural comparison sees the brightness change and upgrades the patch by itself.
@@ -779,7 +806,7 @@ export const allScreen: Screen = {
               h: LINE_H,
               // fitLine is the structural guard: the reservation above is meant to cover every
               // string that can land here, but a clipped line beats a wrapped one if that set grows.
-              content: Formatter.fitLine(v.footerRight, FOOTER_RIGHT.w),
+              content: Formatter.fitLine(localizeNotice(v.footerRight), FOOTER_RIGHT.w),
               brightness: BRIGHT_SECONDARY,
             },
           ]),
@@ -813,13 +840,13 @@ export const allScreen: Screen = {
     updates.push({
       id: ID.ftrLeft,
       name: NAME.ftrLeft,
-      content: Formatter.fitLine(v.footerLeft, FOOTER_LEFT_W),
+      content: Formatter.fitLine(localizeNotice(v.footerLeft), FOOTER_LEFT_W),
     });
     if (v.footerRight !== null) {
       updates.push({
         id: ID.ftrRight,
         name: NAME.ftrRight,
-        content: Formatter.fitLine(v.footerRight, FOOTER_RIGHT.w),
+        content: Formatter.fitLine(localizeNotice(v.footerRight), FOOTER_RIGHT.w),
       });
     }
     return updates;

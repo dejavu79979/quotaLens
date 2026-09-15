@@ -234,7 +234,7 @@ test('a successful poll is followed by the configured interval', async () => {
   assert.equal(h.timers.only().ms, 10 * 60_000);
 });
 
-test('the default interval is five minutes', async () => {
+test('the harness configured with five minutes schedules five minutes', async () => {
   const h = new Harness();
   await h.start();
   assert.equal(h.timers.only().ms, 5 * 60_000);
@@ -304,6 +304,8 @@ test('the settings controller and poller share relay changes without stale snaps
     showRelay: () => undefined,
     showPollInterval: () => undefined,
     showTestRow: () => undefined,
+    showSetupOpen: () => undefined,
+    showToast: () => undefined,
     showSaved: () => undefined,
   };
   const controller = new SettingsController(view, {

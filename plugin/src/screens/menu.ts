@@ -4,6 +4,7 @@
 // options, so the page is 2 header + 3 options + 2 footer = 7 text containers, one under the O4
 // budget of 8; the footer indicator reads `n/3`.
 import { Formatter } from '../format.ts';
+import { LOCALES, STRINGS, t } from '../i18n.ts';
 import {
   BODY_BOTTOM,
   BODY_TOP,
@@ -21,10 +22,8 @@ import {
   type TextSpec,
   type TextUpdate,
 } from '../render.ts';
+import { localizeNotice } from './tool.ts';
 
-const HEADER_LEFT = 'Menu';
-const HEADER_RIGHT_TEXT = 'double-tap = back';
-const FOOTER_LEFT = '▲▼ move · tap select';
 /** §7: the cursor prefix. Selection is also marked by `borderWidth: 1` on the same row. */
 const CURSOR = '> ';
 
@@ -32,7 +31,7 @@ const CURSOR = '> ';
  * §7 V5: `Token stats · soon` has nothing to open yet, so selecting it answers in the footer-left
  * slot for two seconds. Without it that option is an input with no feedback at all (§6 rule 5).
  */
-export const COMING_SOON = 'coming in v2';
+export const COMING_SOON = STRINGS.en.glasses.soon;
 
 /**
  * Cursor index → the §10.3(a) `SELECT_*` transition. The App switches on these rather than on the
@@ -42,11 +41,11 @@ export const MENU_INDEX = { refresh: 0, tokenStats: 1, exit: 2 } as const;
 
 /** §7 frame C2 (M6b): three fixed entries. */
 export function menuItems(): string[] {
-  return ['Refresh now', 'Token stats · soon', 'Exit'];
+  return [...t().glasses.menu];
 }
 
 /** Every label the list can ever hold — the option boxes are sized once, so they never resize. */
-const ALL_LABELS = menuItems();
+const ALL_LABELS = LOCALES.flatMap((locale) => STRINGS[locale].glasses.menu);
 const LABEL_W = Formatter.widestWidth(ALL_LABELS);
 const CURSOR_W = Formatter.textWidth(CURSOR);
 
@@ -71,11 +70,11 @@ const OPT_UNSELECTED_W = OPT_SELECTED_W - CURSOR_W;
 
 const OPT_H = LINE_H + 2 * OPT_INSET;
 const OPT_GAP = 4;
-const OPT_COUNT = ALL_LABELS.length;
+const OPT_COUNT = STRINGS.en.glasses.menu.length;
 const LIST_H = OPT_COUNT * OPT_H + (OPT_COUNT - 1) * OPT_GAP;
 const LIST_Y = BODY_TOP + Math.round((BODY_BOTTOM - BODY_TOP - LIST_H) / 2);
 
-const HEADER_RIGHT = rightColumn([HEADER_RIGHT_TEXT]);
+const HEADER_RIGHT = rightColumn(LOCALES.map((locale) => STRINGS[locale].glasses.back));
 /** `1/3` … `3/3`; §7's ruling is that the indicator is the cursor index, so item 1 reads `1/3`. */
 const FOOTER_RIGHT = rightColumn(
   Array.from({ length: OPT_COUNT }, (_, i) => `${i + 1}/${OPT_COUNT}`),
@@ -121,7 +120,7 @@ export const menuScreen: Screen = {
         y: HEADER_Y,
         w: headerLeftW,
         h: LINE_H,
-        content: Formatter.fitLine(HEADER_LEFT, headerLeftW),
+        content: Formatter.fitLine(t().glasses.menuHdr, headerLeftW),
         brightness: BRIGHT_SECONDARY,
       },
       {
@@ -131,7 +130,7 @@ export const menuScreen: Screen = {
         y: HEADER_Y,
         w: HEADER_RIGHT.w,
         h: LINE_H,
-        content: HEADER_RIGHT_TEXT,
+        content: t().glasses.back,
         brightness: BRIGHT_SECONDARY,
       },
       ...options,
@@ -143,7 +142,7 @@ export const menuScreen: Screen = {
         w: footerLeftW,
         h: LINE_H,
         // §7 V5: the transient notice takes over this slot, then the hint comes back.
-        content: Formatter.fitLine(input.notice ?? FOOTER_LEFT, footerLeftW),
+        content: Formatter.fitLine(localizeNotice(input.notice ?? t().glasses.move), footerLeftW),
         brightness: BRIGHT_SECONDARY,
       },
       {

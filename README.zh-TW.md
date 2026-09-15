@@ -35,7 +35,7 @@ plugin 輪詢 `GET /usage.json`;daemon 監聽 loopback 與桌機的 Tailscale IP
 
 QuotaLens 在 Even App 內只有一個設定頁。把桌機安裝程式印出的 relay address 貼進 **Relay address**(接受 `100.x.y.z`、`100.x.y.z:8787` 或完整的 `http://` origin,會自動正規化),選擇眼鏡的輪詢間隔,然後按 **Test connection** 確認手機能經由 Tailscale 連到 daemon。修改會立即儲存,沒有 Save 按鈕。
 
-![Even App 內的設定頁:Relay address 欄位、Poll interval(3 / 5 / 10 分鐘)、Test connection](docs/images/phone-settings.png)
+![Even App 內的設定頁:Relay address 欄位、Poll interval(1–60 分鐘,預設 3)、Test connection](docs/images/phone-settings.png)
 
 這是以佔位位址渲染的示意圖;`✓ <ms>` 那一列只是展示測試成功時的樣子,不是實測數值。
 

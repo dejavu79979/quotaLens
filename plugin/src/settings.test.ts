@@ -12,6 +12,8 @@ import {
   mergeSettingsBlobs,
   normalizeRelayBase,
   parseSettings,
+  POLL_INTERVAL_MAX,
+  POLL_INTERVAL_MIN,
   saveSettings,
   SETTINGS_KEY,
   storedKey,
@@ -78,12 +80,28 @@ test('nothing stored yet is the defaults, not an error', () => {
   assert.deepEqual(loadSettings(fakeStorage()), DEFAULT_STORED);
 });
 
+test('T10.9 accepts only whole-minute poll intervals from 1 through 60', () => {
+  assert.equal(DEFAULT_STORED.pollIntervalMin, 3);
+  assert.equal(POLL_INTERVAL_MIN, 1);
+  assert.equal(POLL_INTERVAL_MAX, 60);
+  for (const value of [1, 3, 5, 10, 60]) {
+    assert.equal(parseSettings({ pollIntervalMin: value }).pollIntervalMin, value, String(value));
+  }
+  for (const value of [0, 61, 2.5, '7', Number.NaN]) {
+    assert.equal(
+      parseSettings({ pollIntervalMin: value }).pollIntervalMin,
+      3,
+      `${String(value)} did not fall back`,
+    );
+  }
+});
+
 test('one bad field costs its own default, not the whole record', () => {
   // Losing a configured relay URL because the interval was malformed reads as "the app forgot my
   // settings" — the one thing T3.5's acceptance says must survive a restart.
-  const parsed = parseSettings({ relayUrl: 'http://host:8787', pollIntervalMin: 7 });
+  const parsed = parseSettings({ relayUrl: 'http://host:8787', pollIntervalMin: 61 });
   assert.equal(parsed.relayUrl, 'http://host:8787');
-  assert.equal(parsed.pollIntervalMin, DEFAULT_STORED.pollIntervalMin, 'an interval off the menu');
+  assert.equal(parsed.pollIntervalMin, DEFAULT_STORED.pollIntervalMin, 'an interval outside the range');
   // …and the other way round: a bad URL does not cost a good interval.
   assert.deepEqual(parseSettings({ relayUrl: 42, pollIntervalMin: 10 }), {
     relayUrl: DEFAULT_STORED.relayUrl,

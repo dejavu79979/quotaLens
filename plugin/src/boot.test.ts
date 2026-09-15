@@ -232,6 +232,8 @@ function fakeSettingsPage(storage: StorageLike) {
       showRelay: (text) => void painted.relay.push(text),
       showPollInterval: (min) => void painted.poll.push(min),
       showTestRow: () => undefined,
+      showSetupOpen: () => undefined,
+      showToast: () => undefined,
       showSaved: (outcome) => void painted.saved.push(outcome),
     },
     { storage },

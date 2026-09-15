@@ -19,8 +19,9 @@ import { DEFAULT_SETTINGS } from './render.ts';
 /** One key, one JSON blob: nothing here is big enough to be worth separate keys. */
 export const SETTINGS_KEY = 'quotalens.settings';
 
-/** §7 / T3.5: the three intervals the page offers, in minutes. */
-export const POLL_INTERVAL_CHOICES = [3, 5, 10] as const;
+/** §7 / T10.9: every whole-minute interval the phone page accepts. */
+export const POLL_INTERVAL_MIN = 1;
+export const POLL_INTERVAL_MAX = 60;
 
 export interface StoredSettings extends PluginSettings {
   /**
@@ -65,11 +66,18 @@ export function normalizeRelayBase(text: string): string {
   return url.origin;
 }
 
-/** Anything outside the offered choices falls back to the default rather than being clamped. */
+/** T10.9: stored intervals must be whole minutes in range; malformed values use the default. */
+export function isPollInterval(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= POLL_INTERVAL_MIN &&
+    value <= POLL_INTERVAL_MAX
+  );
+}
+
 function pollIntervalOf(value: unknown): number {
-  return POLL_INTERVAL_CHOICES.includes(value as (typeof POLL_INTERVAL_CHOICES)[number])
-    ? (value as number)
-    : DEFAULT_STORED.pollIntervalMin;
+  return isPollInterval(value) ? value : DEFAULT_STORED.pollIntervalMin;
 }
 
 /**

@@ -6,6 +6,7 @@
 // every column position downstream is a measured pixel value, never a space count.
 import { getTextWidth, measureTextWrap, pxTruncate } from '@evenrealities/pretext';
 import { staleThresholdMin, type ToolId } from '@quotalens/shared';
+import { LOCALES, STRINGS, t } from './i18n.ts';
 
 /** Progress-bar glyphs, both confirmed present on the firmware font by the T3.1-G gate. */
 export const BAR_FILLED = '█'; // U+2588
@@ -25,8 +26,6 @@ export const NO_CLOCK = '--:--';
 export const WIDEST_DIGIT = '0123456789'
   .split('')
   .reduce((widest, d) => (getTextWidth(d) > getTextWidth(widest) ? d : widest));
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
 /**
  * `stale Xm` has to stay inside a footer column whose x is fixed at mount time (O1 leaves no
@@ -55,7 +54,13 @@ export const STALE_WIDEST_LABELS: readonly string[] = (() => {
   // the label can actually take against the result, which is what makes this safe rather than
   // plausible.
   const runs = '0123456789'.split('').map((d) => d.repeat(String(STALE_MAX_UNITS).length));
-  return runs.flatMap((digits) => [`stale ${digits}m`, `stale ${digits}h`, `stale ${digits}h+`]);
+  return LOCALES.flatMap((locale) =>
+    runs.flatMap((digits) => [
+      STRINGS[locale].glasses.stale(`${digits}m`),
+      STRINGS[locale].glasses.stale(`${digits}h`),
+      STRINGS[locale].glasses.stale(`${digits}h+`),
+    ]),
+  );
 })();
 
 /**
@@ -71,7 +76,13 @@ export const RESET_WIDEST_LABELS: readonly string[] = (() => {
   // Same caution as the stale labels: digits are neither equal width nor free of kerning (O3), so
   // the widest clock is measured as whole same-digit runs rather than assembled from one glyph.
   const clocks = '0123456789'.split('').map((d) => `${d}${d}:${d}${d}`);
-  return clocks.flatMap((hhmm) => [`resets ${hhmm}`, ...WEEKDAYS.map((day) => `resets ${day} ${hhmm}`)]);
+  return LOCALES.flatMap((locale) => {
+    const strings = STRINGS[locale].glasses;
+    return clocks.flatMap((hhmm) => [
+      strings.resets(null, hhmm),
+      ...strings.days.map((day) => strings.resets(day, hhmm)),
+    ]);
+  });
 })();
 
 function pad2(n: number): string {
@@ -132,7 +143,8 @@ export const Formatter = {
       d.getFullYear() === now.getFullYear() &&
       d.getMonth() === now.getMonth() &&
       d.getDate() === now.getDate();
-    return sameDay ? `resets ${hhmm}` : `resets ${WEEKDAYS[d.getDay()]} ${hhmm}`;
+    const strings = t().glasses;
+    return strings.resets(sameDay ? null : strings.days[d.getDay()] ?? null, hhmm);
   },
 
   /**
@@ -151,7 +163,7 @@ export const Formatter = {
     if (Number.isNaN(fetchedMs)) return 'ok';
     const ageMs = now.getTime() - fetchedMs;
     if (ageMs <= staleThresholdMin(tool, pollIntervalMin) * 60_000) return 'ok';
-    return `stale ${staleAmount(Math.floor(ageMs / 60_000))}`;
+    return t().glasses.stale(staleAmount(Math.floor(ageMs / 60_000)));
   },
 
   /** Single-line pixel width of `s`. */
