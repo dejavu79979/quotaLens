@@ -17,7 +17,7 @@ The plugin polls `GET /usage.json`; the daemon listens on loopback and the deskt
 
 ## On the glasses
 
-The usage page: one section per tool with the 5-hour and weekly windows, a bar, the reset time, and how fresh the numbers are (`ok` or `stale Xm`). The third Claude row is the per-model weekly limit when your plan has one.
+The usage page: one section per tool with the 5-hour and weekly windows, a bar, the reset time, and how fresh the numbers are (`ok` or `stale Xm`). The third Claude row is the per-model weekly limit when your plan has one. The glasses and the settings page follow the phone's language (English, Traditional Chinese, Simplified Chinese, Japanese, Korean, German).
 
 ![Usage page on the G2: CLAUDE and CODEX sections with percentages, bars and reset times](docs/images/glasses-usage.png)
 
@@ -35,7 +35,7 @@ Captures are from the Even Hub simulator at the G2's 576×288 resolution; the gl
 
 QuotaLens has one settings page inside the Even App. Paste the relay address the desktop installer printed into **Relay address** (it accepts `100.x.y.z`, `100.x.y.z:8787` or the full `http://` origin and normalizes it), pick how often the glasses poll, and tap **Test connection** to confirm the phone can reach the daemon over Tailscale. Changes save immediately; there is no Save button.
 
-![Settings page in the Even App: Relay address field, Poll interval (1–60 min, default 3), Test connection](docs/images/phone-settings.png)
+![Settings page in the Even App: Relay address field, Poll interval (1–60 min, default 3), Test connection, and a collapsible Setup card with the install steps](docs/images/phone-settings.png)
 
 Demo render of the settings page with a placeholder address; the `✓ <ms>` row is what a successful test looks like, not a measurement.
 

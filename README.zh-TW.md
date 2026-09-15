@@ -17,25 +17,25 @@ plugin 輪詢 `GET /usage.json`;daemon 監聽 loopback 與桌機的 Tailscale IP
 
 ## 眼鏡上的畫面
 
-用量頁:每個工具一段,列出 5 小時視窗與每週限額、進度條、重置時間,以及數字有多新(`ok` 或 `stale Xm`)。Claude 的第三列是方案有提供時的「單一模型每週限額」。
+用量頁:每個工具一段,列出 5 小時視窗與每週限額、進度條、重置時間,以及數字有多新(`ok` 或 `過期 Xm`)。Claude 的第三列是方案有提供時的「單一模型每週限額」。眼鏡與設定頁的文字跟隨手機的系統語言(英文、繁體中文、簡體中文、日文、韓文、德文)。
 
-![G2 上的用量頁:CLAUDE 與 CODEX 兩段,含百分比、進度條與重置時間](docs/images/glasses-usage.png)
+![G2 上的用量頁(繁體中文):CLAUDE 與 CODEX 兩段,含百分比、進度條與重置時間](docs/images/glasses-usage.zh-TW.png)
 
 首次啟動、尚未設定 relay address 時:
 
-![首次啟動:「Set the relay address in the Even App on your phone」](docs/images/glasses-first-launch.png)
+![首次啟動:「請設定 relay 位址 / 在手機的 Even App 裡」](docs/images/glasses-first-launch.zh-TW.png)
 
-長按打開選單(Refresh now / Exit):
+長按打開選單(立即重新整理 / 離開):
 
-![選單:Refresh now、Token stats · soon、Exit](docs/images/glasses-menu.png)
+![選單:立即重新整理、Token 統計 · 即將推出、離開](docs/images/glasses-menu.zh-TW.png)
 
-截圖取自 Even Hub simulator,解析度為 G2 的 576×288;眼鏡上呈現同樣的綠色透明版面。
+截圖取自 Even Hub simulator,解析度為 G2 的 576×288,韌體字型;眼鏡上呈現同樣的綠色透明版面。
 
 ## 手機上的畫面
 
 QuotaLens 在 Even App 內只有一個設定頁。把桌機安裝程式印出的 relay address 貼進 **Relay address**(接受 `100.x.y.z`、`100.x.y.z:8787` 或完整的 `http://` origin,會自動正規化),選擇眼鏡的輪詢間隔,然後按 **Test connection** 確認手機能經由 Tailscale 連到 daemon。修改會立即儲存,沒有 Save 按鈕。
 
-![Even App 內的設定頁:Relay address 欄位、Poll interval(1–60 分鐘,預設 3)、Test connection](docs/images/phone-settings.png)
+![Even App 內的設定頁(繁體中文):Relay 位址欄位、輪詢間隔(1–60 分鐘,預設 3)、測試連線,以及可摺疊的安裝說明卡片](docs/images/phone-settings.zh-TW.png)
 
 這是以佔位位址渲染的示意圖;`✓ <ms>` 那一列只是展示測試成功時的樣子,不是實測數值。
 
@@ -88,7 +88,7 @@ agent 必須遵守那些規則:憑證只能讀取,絕不能貼到任何地方。
 |---|---|---|
 | 點一下(tap) | 立即重新整理 | 選取 |
 | 上/下滑(swipe) | 只有一頁;footer 會提示 | 移動游標 |
-| 長按(long-press) | 打開選單(Refresh now / Token stats · soon / Exit) | — |
+| 長按(long-press) | 打開選單(立即重新整理 / Token 統計 · 即將推出 / 離開) | — |
 | 點兩下(double-tap) | 系統的離開確認 | 返回 |
 
 ## 安全邊界

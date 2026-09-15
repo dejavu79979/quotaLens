@@ -163,6 +163,11 @@ const hydrated = await startThenHydrate({
   // lives on the host only, so until this ran the form showed an empty field over a configured app.
   page: settingsPage,
 });
+// README screenshots need the menu on demand; this switch is fixture-only and never runs on live data.
+if (usingFixture && params.get('menu') === '1') {
+  await app.dispatch('LONG_PRESS');
+  console.log('QuotaLens: menu opened by the ?menu=1 fixture switch');
+}
 console.log(
   `QuotaLens: ready (${usingFixture ? `fixture=${String(fixture)}` : 'live'}, phase=${app.current.phase}${hydrated ? ', hydrated' : ''})`,
 );
